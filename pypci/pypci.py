@@ -11,7 +11,8 @@ iopl_flag = False
 root_flag = False
 
 PCIConfigHeader = collections.namedtuple('PCIConfigHeader',
-                                         ['vendor_id',
+                                         ['pcie_loc',
+                                          'vendor_id',
                                           'device_id',
                                           'command',
                                           'status',
@@ -69,8 +70,9 @@ def acquire_io_access_permission():
     return ret
 
 
-def create_pci_config_header(config_dump, bar):
+def create_pci_config_header(pcie_loc,config_dump, bar):
     d = {}
+    d['pcie_loc'] = pcie_loc
     d['vendor_id'] = struct.unpack('<H', config_dump[0:2])[0]
     d['device_id'] = struct.unpack('<H', config_dump[2:4])[0]
     d['command'] = struct.unpack('<H', config_dump[4:6])[0]
@@ -111,11 +113,12 @@ def parse_lspci_output(output_txt):
             return 0
         
         size_str = line.split('[size=')[1].split(']')[0]
-        
         if size_str.endswith('K'):
             size = int(size_str[:-1]) * 1024
         elif size_str.endswith('M'):
             size = int(size_str[:-1]) * 1024 * 1024
+        elif size_str.endswith('G'):
+            size = int(size_str[:-1]) * 1024 * 1024 * 1024
         else:
             size = int(size_str)
             pass
@@ -139,6 +142,7 @@ def parse_lspci_output(output_txt):
     bar_list = []
     dump = b''
     dump_mode = False
+    pcie_loc = output_txt[0:7]
     for line in output_txt.split('\n'):
         if line.strip().startswith('I/O'):
             io_addr = get_io_addr(line)
@@ -166,7 +170,7 @@ def parse_lspci_output(output_txt):
             pass
         continue
     
-    config_header = create_pci_config_header(dump, bar_list)
+    config_header = create_pci_config_header(pcie_loc,dump, bar_list)
     return config_header
 
 def lspci(vendor=None, device=None):
